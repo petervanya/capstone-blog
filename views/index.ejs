@@ -1,0 +1,19 @@
+<%- include('partials/header') %>
+
+<h1>Published articles</h1>
+
+<% articles.forEach(element => { %>
+    <h2><%= element.title %></h2>
+    <p>Author: <%= element.author %>, published on <%= element.date.toLocaleString() %> </p>
+    <p><%= element.content %></p>
+
+    <form action="/edit" method="POST">
+        <input type="submit" value="Edit">
+        <input type="submit" value="Delete">
+        <input type="hidden" name="id" value="<%= element.id %>">
+    </form>
+    <p>~~~~~</p>
+
+<% }); %>
+
+<%- include('partials/footer') %>

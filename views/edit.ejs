@@ -1,0 +1,22 @@
+<%- include('partials/header.ejs') %>
+
+<h1>Edit post <%= article.id %> </h1>
+<form action="/submit-edited" method="POST">
+    <label for="title">Article heading:</label>
+    <br>
+    <input type="text" name="title" value="<%= article.title %>" required>
+    <br>
+    <label for="author">Author:</label>
+    <br>
+    <input type="text" name="author" value="<%= article.author %>">
+    <br>
+    <label for="content">Article body:</label>
+    <br>
+    <textarea name="largeTextField" rows="4" cols="50"><%= article.content %></textarea>
+    <br>
+    <input type="hidden" name="id" value="<%= article.id %>">
+    <input type="submit" value="Submit">
+</form>
+
+
+<%- include('partials/footer.ejs') %>
