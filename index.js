@@ -1,6 +1,25 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 
+import { Client } from 'pg';
+
+const client = new Client({
+    user: 'postgres',
+    host: 'localhost',
+    database: 'blog',
+    password: '', // add your password if needed
+    port: 5432,
+});
+
+client.connect()
+    .then(() => {
+        console.log('Connected to PostgreSQL database: blog');
+    })
+    .catch((err) => {
+        console.error('Failed to connect to PostgreSQL', err);
+    });
+
+
 
 // sample articles
 var db_articles = [
