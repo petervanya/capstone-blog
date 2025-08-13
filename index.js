@@ -1,127 +1,180 @@
 import express from 'express';
 import bodyParser from 'body-parser';
+import pg from 'pg';
+import dotenv from 'dotenv';
 
-import { Client } from 'pg';
-
-const client = new Client({
-    user: 'postgres',
-    host: 'localhost',
-    database: 'blog',
-    password: '', // add your password if needed
-    port: 5432,
-});
-
-client.connect()
-    .then(() => {
-        console.log('Connected to PostgreSQL database: blog');
-    })
-    .catch((err) => {
-        console.error('Failed to connect to PostgreSQL', err);
-    });
-
-
-
-// sample articles
-var db_articles = [
-    {
-        id: 0,
-        title: 'Article 1 on topic 1',
-        author: 'peter',
-        date: new Date(),
-        content: 'This is the content of article 1'
-    },
-    {
-        id: 1,
-        title: 'Article 2 on topic 2',
-        author: 'peter',
-        date: new Date(),
-        content: 'This is the content of article 2'
-    }
-];
-
+dotenv.config();
 
 const app = express();
 const port = 3000;
 
+// Set up EJS as view engine
+app.set('view engine', 'ejs');
+app.set('views', './views');
+
+app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+const pool = new pg.Pool({
+  user: process.env.PGUSER,
+  host: process.env.PGHOST,
+  database: process.env.PGDATABASE,
+  password: process.env.PGPASSWORD,
+  port: 5432,
+});
+
+// Serve static files
 app.use(express.static('public'));
 
-// functions
-function getCurrentID(db_articles) {
-    return db_articles[db_articles.length - 1].id;
-}
-
-function locateArticle(id) {
-    for (var article of db_articles) {
-        if (article.id == id) {
-            return article;
-        }
-    }
-}
-
-var current_id = getCurrentID(db_articles);
-
-
-// show all posted articles
-app.get('/', (req, res) => {
-    res.render('index.ejs', { articles: db_articles });
+// Routes for serving pages
+app.get('/', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM posts ORDER BY created_at DESC');
+    res.render('index', { posts: result.rows });
+  } catch (err) {
+    console.error('Error fetching posts:', err);
+    res.render('index', { posts: [], error: 'Error loading posts' });
+  }
 });
 
-// redirect to new post route
 app.get('/post', (req, res) => {
-
-    // var dummy_article = {
-    //     id: current_id,
-    //     title: 'Sample title...',
-    //     author: 'Sample author...',
-    //     date: '',
-    //     content: 'Sample content...'
-    // };
-
-    // res.render('edit.ejs', { article: dummy_article });
-    res.render('post.ejs');
+  res.render('post');
 });
 
-// process new post
-app.post('/submit', (req, res) => {
-    current_id++;
-
-    var new_article = {
-        id: db_articles.length,
-        title: req.body["title"],
-        author: req.body["author"],
-        date: new Date(),
-        content: req.body["content"]
+app.get('/edit/:id', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM posts WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.redirect('/');
     }
-    db_articles.push(new_article);
-
+    res.render('edit', { post: result.rows[0] });
+  } catch (err) {
+    console.error('Error fetching post:', err);
     res.redirect('/');
+  }
 });
 
-// edit article
-app.post('/edit', (req, res) => {
-    var id = req.body["id"];
+// Create a new post (server-side route)
+app.post('/create', async (req, res) => {
+  const { title, content } = req.body;
+  if (!title || !content) {
+    return res.render('post', { error: 'Title and content are required' });
+  }
 
-    var edit_article = locateArticle(id);
-    console.log(edit_article);
-
-    res.render('edit.ejs', { article: edit_article });
+  try {
+    await pool.query(
+      'INSERT INTO posts (title, content) VALUES ($1, $2)',
+      [title, content]
+    );
+    res.redirect('/'); // Redirect to home page after creation
+  } catch (err) {
+    console.error('Error creating post:', err);
+    res.render('post', { error: 'Error creating post' });
+  }
 });
 
-app.post('/submit-edited', (req, res) => {
-    var edit_article = {
-        id: req.body["id"],
-        title: req.body["title"],
-        author: req.body["author"],
-        date: new Date(),
-        content: req.body["content"]
+// Update a post (server-side route)
+app.post('/update/:id', async (req, res) => {
+  const { title, content } = req.body;
+  if (!title || !content) {
+    return res.render('edit', { post: req.body, error: 'Title and content are required' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE posts SET title = $1, content = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+      [title, content, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.redirect('/');
     }
-    db_articles[edit_article.id] = edit_article;
-
-    res.redirect('/');
+    res.redirect('/'); // Redirect to home page after update
+  } catch (err) {
+    console.error('Error updating post:', err);
+    res.render('edit', { post: req.body, error: 'Error updating post' });
+  }
 });
 
+// Delete a post (server-side route)
+app.post('/delete/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM posts WHERE id = $1 RETURNING *', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    res.redirect('/'); // Redirect back to home page after deletion
+  } catch (err) {
+    console.error('Error deleting post:', err);
+    res.status(500).json({ error: 'Error deleting post' });
+  }
+});
+
+// API Routes
+// Get all posts
+app.get('/posts', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM posts ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching posts' });
+  }
+});
+
+// Get one post
+app.get('/posts/:id', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM posts WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Post not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching post' });
+  }
+});
+
+// Create a new post
+app.post('/posts', async (req, res) => {
+  const { title, content } = req.body;
+  if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
+
+  try {
+    const result = await pool.query(
+      'INSERT INTO posts (title, content) VALUES ($1, $2) RETURNING *',
+      [title, content]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Error creating post' });
+  }
+});
+
+// Edit a post
+app.put('/posts/:id', async (req, res) => {
+  const { title, content } = req.body;
+  if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
+
+  try {
+    const result = await pool.query(
+      'UPDATE posts SET title = $1, content = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+      [title, content, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Post not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Error updating post' });
+  }
+});
+
+// Delete a post
+app.delete('/posts/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM posts WHERE id = $1 RETURNING *', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Post not found' });
+    res.json({ message: 'Post deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error deleting post' });
+  }
+});
 
 app.listen(port, () => {
-    console.log(`Listening on port ${port}`);
+  console.log(`Blog app listening at http://localhost:${port}`);
 });
