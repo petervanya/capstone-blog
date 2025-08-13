@@ -14,7 +14,16 @@ app.set('views', './views');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static('public'));
 
+// pg.Pool is used to manage a pool of clients and allows multiple
+// simultaneous connections to the database, which is efficient for
+// handling many queries in a web server.
+// pg.Client, on the other hand, is a single client connection to the
+// database and is typically used for simple scripts or when you need
+// fine-grained control over the connection lifecycle.
+// Here, we use pg.Pool to efficiently manage connections for our
+// Express app.
 const pool = new pg.Pool({
   user: process.env.PGUSER,
   host: process.env.PGHOST,
@@ -22,9 +31,6 @@ const pool = new pg.Pool({
   password: process.env.PGPASSWORD,
   port: 5432,
 });
-
-// Serve static files
-app.use(express.static('public'));
 
 // Routes for serving pages
 app.get('/', async (req, res) => {
@@ -105,72 +111,6 @@ app.post('/delete/:id', async (req, res) => {
     res.redirect('/'); // Redirect back to home page after deletion
   } catch (err) {
     console.error('Error deleting post:', err);
-    res.status(500).json({ error: 'Error deleting post' });
-  }
-});
-
-// API Routes
-// Get all posts
-app.get('/posts', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM posts ORDER BY created_at DESC');
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: 'Error fetching posts' });
-  }
-});
-
-// Get one post
-app.get('/posts/:id', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM posts WHERE id = $1', [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Post not found' });
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: 'Error fetching post' });
-  }
-});
-
-// Create a new post
-app.post('/posts', async (req, res) => {
-  const { title, content } = req.body;
-  if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
-
-  try {
-    const result = await pool.query(
-      'INSERT INTO posts (title, content) VALUES ($1, $2) RETURNING *',
-      [title, content]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: 'Error creating post' });
-  }
-});
-
-// Edit a post
-app.put('/posts/:id', async (req, res) => {
-  const { title, content } = req.body;
-  if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
-
-  try {
-    const result = await pool.query(
-      'UPDATE posts SET title = $1, content = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
-      [title, content, req.params.id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Post not found' });
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: 'Error updating post' });
-  }
-});
-
-// Delete a post
-app.delete('/posts/:id', async (req, res) => {
-  try {
-    const result = await pool.query('DELETE FROM posts WHERE id = $1 RETURNING *', [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Post not found' });
-    res.json({ message: 'Post deleted successfully' });
-  } catch (err) {
     res.status(500).json({ error: 'Error deleting post' });
   }
 });
