@@ -1,22 +1,30 @@
-<%- include('partials/header.ejs') %>
+<%- include('partials/header') %>
 
-<h1>Edit post <%= article.id %> </h1>
-<form action="/submit-edited" method="POST">
-    <label for="title">Article heading:</label>
-    <br>
-    <input type="text" name="title" value="<%= article.title %>" required>
-    <br>
-    <label for="author">Author:</label>
-    <br>
-    <input type="text" name="author" value="<%= article.author %>">
-    <br>
-    <label for="content">Article body:</label>
-    <br>
-    <textarea name="largeTextField" rows="4" cols="50"><%= article.content %></textarea>
-    <br>
-    <input type="hidden" name="id" value="<%= article.id %>">
-    <input type="submit" value="Submit">
-</form>
+<div class="container">
+  <h1>Edit Article</h1>
+  
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="error-message">
+      <p><%= error %></p>
+    </div>
+  <% } %>
+  
+  <form action="/update/<%= post.id %>" method="POST" class="post-form">
+    <div class="form-group">
+      <label for="title">Article Title:</label>
+      <input type="text" id="title" name="title" value="<%= post.title %>" required>
+    </div>
+    
+    <div class="form-group">
+      <label for="content">Article Content:</label>
+      <textarea id="content" name="content" rows="8" required><%= post.content %></textarea>
+    </div>
+    
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Update Article</button>
+      <a href="/" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
 
-
-<%- include('partials/footer.ejs') %>
+<%- include('partials/footer') %>
