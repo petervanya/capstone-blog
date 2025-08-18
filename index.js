@@ -60,6 +60,20 @@ app.get('/edit/:id', async (req, res) => {
   }
 });
 
+// View a single post
+app.get('/view/:id', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM posts WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.redirect('/');
+    }
+    res.render('view', { post: result.rows[0] });
+  } catch (err) {
+    console.error('Error fetching post:', err);
+    res.redirect('/');
+  }
+});
+
 // Create a new post (server-side route)
 app.post('/create', async (req, res) => {
   const { title, content } = req.body;
