@@ -17,7 +17,7 @@
     
     <div class="form-group">
       <label for="content">Article Content:</label>
-      <textarea id="content" name="content" rows="8" required><%= post.content %></textarea>
+      <textarea id="content" name="content" rows="12" required><%= post.content %></textarea>
     </div>
     
     <div class="form-actions">
@@ -25,6 +25,27 @@
       <a href="/" class="btn btn-secondary">Cancel</a>
     </div>
   </form>
+
+  <div class="preview-section">
+    <h2>Live Preview</h2>
+    <div id="markdown-preview" class="markdown-preview"></div>
+  </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>
+<script>
+  const textarea = document.getElementById('content');
+  const preview = document.getElementById('markdown-preview');
+
+  function updatePreview() {
+    const raw = textarea.value || '';
+    const html = marked.parse(raw);
+    preview.innerHTML = DOMPurify.sanitize(html);
+  }
+
+  textarea.addEventListener('input', updatePreview);
+  document.addEventListener('DOMContentLoaded', updatePreview);
+</script>
 
 <%- include('partials/footer') %>

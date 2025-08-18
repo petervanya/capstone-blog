@@ -2,6 +2,8 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import pg from 'pg';
 import dotenv from 'dotenv';
+import { marked } from 'marked';
+import sanitizeHtml from 'sanitize-html';
 
 dotenv.config();
 
@@ -31,6 +33,11 @@ const pool = new pg.Pool({
   password: process.env.PGPASSWORD,
   port: 5432,
 });
+
+function renderMarkdownToSafeHtml(markdown) {
+  const html = marked.parse(markdown || '');
+  return sanitizeHtml(html);
+}
 
 // Routes for serving pages
 app.get('/', async (req, res) => {
@@ -67,7 +74,9 @@ app.get('/view/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.redirect('/');
     }
-    res.render('view', { post: result.rows[0] });
+    const post = result.rows[0];
+    const postHtml = renderMarkdownToSafeHtml(post.content);
+    res.render('view', { post, postHtml });
   } catch (err) {
     console.error('Error fetching post:', err);
     res.redirect('/');
