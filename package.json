@@ -12,6 +12,10 @@
   "license": "ISC",
   "dependencies": {
     "ejs": "^3.1.10",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "dotenv": "^16.4.5",
+    "marked": "^12.0.2",
+    "sanitize-html": "^2.13.0"
   }
 }
